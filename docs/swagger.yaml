@@ -1,0 +1,237 @@
+basePath: /api/v1
+definitions:
+  models.Person:
+    properties:
+      age:
+        type: integer
+      created_at:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      nationality:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.PersonInput:
+    properties:
+      name:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: API для управления записями о людях с обогащением данных из внешних
+    источников.
+  title: Person Service API
+  version: "1.0"
+paths:
+  /api/v1/persons:
+    get:
+      description: Возвращает список записей о людях с поддержкой пагинации и фильтров
+        по имени и фамилии.
+      parameters:
+      - default: 10
+        description: Лимит записей
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      - description: Фильтр по имени
+        in: query
+        name: name
+        type: string
+      - description: Фильтр по фамилии
+        in: query
+        name: surname
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список записей
+          schema:
+            items:
+              $ref: '#/definitions/models.Person'
+            type: array
+        "400":
+          description: Некорректные параметры
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить список записей о людях
+      tags:
+      - persons
+    post:
+      consumes:
+      - application/json
+      description: Создаёт запись о человеке с указанным именем, фамилией (опционально)
+        и отчеством (опционально). Данные обогащаются через внешние API.
+      parameters:
+      - description: Данные человека
+        in: body
+        name: person
+        required: true
+        schema:
+          $ref: '#/definitions/models.PersonInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Созданная запись
+          schema:
+            $ref: '#/definitions/models.Person'
+        "400":
+          description: Некорректный JSON или ошибка валидации
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создать новую запись о человеке
+      tags:
+      - persons
+  /api/v1/persons/{id}:
+    delete:
+      description: Удаляет запись о человеке по указанному ID.
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Запись удалена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Запись не найдена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Удалить запись о человеке
+      tags:
+      - persons
+    get:
+      description: Возвращает запись о человеке по указанному ID.
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Запись найдена
+          schema:
+            $ref: '#/definitions/models.Person'
+        "400":
+          description: Некорректный ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Запись не найдена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить запись о человеке по ID
+      tags:
+      - persons
+    put:
+      consumes:
+      - application/json
+      description: Обновляет существующую запись о человеке по указанному ID.
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Обновлённые данные человека
+        in: body
+        name: person
+        required: true
+        schema:
+          $ref: '#/definitions/models.Person'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Запись обновлена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Некорректный ID или JSON
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить запись о человеке
+      tags:
+      - persons
+swagger: "2.0"
