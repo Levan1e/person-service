@@ -26,7 +26,6 @@ func NewServer(cfg *config.Config, service *service.PersonService, logger *zap.L
 	r := chi.NewRouter()
 
 	// Middleware
-	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// API v1

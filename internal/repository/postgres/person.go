@@ -2,30 +2,62 @@ package postgres
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"person-service/internal/models"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+//go:embed queries.sql
+var queriesFS embed.FS
+
 // PersonRepository предоставляет методы для работы с таблицей persons.
 type PersonRepository struct {
-	db *pgxpool.Pool
+	db      *pgxpool.Pool
+	queries map[string]string
 }
 
 // NewPersonRepository создаёт новый репозиторий для работы с persons.
-func NewPersonRepository(db *pgxpool.Pool) *PersonRepository {
-	return &PersonRepository{db: db}
+func NewPersonRepository(db *pgxpool.Pool) (*PersonRepository, error) {
+	// Загрузка SQL-запросов
+	content, err := queriesFS.ReadFile("queries.sql")
+	if err != nil {
+		return nil, fmt.Errorf("не удалось прочитать queries.sql: %w", err)
+	}
+
+	queries := make(map[string]string)
+	lines := strings.Split(string(content), "\n")
+	var currentQuery string
+	var currentName string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "-- name: ") {
+			if currentName != "" && currentQuery != "" {
+				queries[currentName] = strings.TrimSpace(currentQuery)
+			}
+			currentName = strings.TrimPrefix(line, "-- name: ")
+			currentQuery = ""
+		} else {
+			currentQuery += line + "\n"
+		}
+	}
+	if currentName != "" && currentQuery != "" {
+		queries[currentName] = strings.TrimSpace(currentQuery)
+	}
+
+	return &PersonRepository{db: db, queries: queries}, nil
 }
 
 // Create создаёт новую запись в таблице persons.
 func (r *PersonRepository) Create(ctx context.Context, person *models.Person) error {
-	query := `
-		INSERT INTO persons (name, surname, patronymic, age, gender, nationality, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id
-	`
+	query := r.queries["CreatePerson"]
 	err := r.db.QueryRow(ctx, query,
 		person.Name,
 		person.Surname,
@@ -44,11 +76,7 @@ func (r *PersonRepository) Create(ctx context.Context, person *models.Person) er
 
 // GetByID возвращает запись по ID.
 func (r *PersonRepository) GetByID(ctx context.Context, id int) (*models.Person, error) {
-	query := `
-		SELECT id, name, surname, patronymic, age, gender, nationality, created_at, updated_at
-		FROM persons
-		WHERE id = $1
-	`
+	query := r.queries["GetPersonByID"]
 	var person models.Person
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&person.ID,
@@ -69,11 +97,7 @@ func (r *PersonRepository) GetByID(ctx context.Context, id int) (*models.Person,
 
 // Update обновляет запись в таблице persons.
 func (r *PersonRepository) Update(ctx context.Context, person *models.Person) error {
-	query := `
-		UPDATE persons
-		SET name = $1, surname = $2, patronymic = $3, age = $4, gender = $5, nationality = $6, updated_at = $7
-		WHERE id = $8
-	`
+	query := r.queries["UpdatePerson"]
 	_, err := r.db.Exec(ctx, query,
 		person.Name,
 		person.Surname,
@@ -92,7 +116,7 @@ func (r *PersonRepository) Update(ctx context.Context, person *models.Person) er
 
 // Delete удаляет запись по ID.
 func (r *PersonRepository) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM persons WHERE id = $1`
+	query := r.queries["DeletePerson"]
 	result, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("не удалось удалить запись: %w", err)
@@ -105,32 +129,23 @@ func (r *PersonRepository) Delete(ctx context.Context, id int) error {
 
 // List возвращает список записей с пагинацией и фильтрами.
 func (r *PersonRepository) List(ctx context.Context, limit, offset int, filters map[string]string) ([]*models.Person, error) {
-	query := `SELECT id, name, surname, patronymic, age, gender, nationality, created_at, updated_at FROM persons`
-	args := []interface{}{}
+	queryTemplate := r.queries["ListPersons"]
+	args := []interface{}{limit, offset}
 	whereClauses := []string{}
-	argIndex := 1
 
 	if name, ok := filters["name"]; ok {
-		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE $%d", argIndex))
-		args = append(args, "%"+name+"%")
-		argIndex++
+		whereClauses = append(whereClauses, fmt.Sprintf("name ILIKE '%s'", "%"+name+"%"))
 	}
 	if surname, ok := filters["surname"]; ok {
-		whereClauses = append(whereClauses, fmt.Sprintf("surname ILIKE $%d", argIndex))
-		args = append(args, "%"+surname+"%")
-		argIndex++
+		whereClauses = append(whereClauses, fmt.Sprintf("surname ILIKE '%s'", "%"+surname+"%"))
 	}
 
+	var where string
 	if len(whereClauses) > 0 {
-		query += " WHERE " + whereClauses[0]
-		for i := 1; i < len(whereClauses); i++ {
-			query += " AND " + whereClauses[i]
-		}
+		where = strings.Join(whereClauses, " AND ")
 	}
 
-	query += fmt.Sprintf(" ORDER BY id LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
-	args = append(args, limit, offset)
-
+	query := strings.Replace(queryTemplate, "{{if .Where}}WHERE {{.Where}}{{end}}", where, 1)
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось получить список записей: %w", err)

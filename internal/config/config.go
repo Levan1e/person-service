@@ -44,10 +44,6 @@ func LoadConfig() (*Config, error) {
 		fmt.Printf("Ошибка чтения .env: %v\n", err)
 	} else {
 		fmt.Println("Файл .env успешно прочитан")
-		fmt.Println("Ключи из .env:", viper.AllKeys())
-		for _, key := range viper.AllKeys() {
-			fmt.Printf("Ключ: %s, Значение: %v\n", key, viper.Get(key))
-		}
 	}
 
 	var cfg Config
