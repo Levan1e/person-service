@@ -1,5 +1,13 @@
 basePath: /api/v1
 definitions:
+  models.GenderType:
+    enum:
+    - male
+    - female
+    type: string
+    x-enum-varnames:
+    - GenderMale
+    - GenderFemale
   models.Person:
     properties:
       age:
@@ -7,7 +15,7 @@ definitions:
       created_at:
         type: string
       gender:
-        type: string
+        $ref: '#/definitions/models.GenderType'
       id:
         type: integer
       name:
@@ -30,6 +38,21 @@ definitions:
       surname:
         type: string
     type: object
+  models.PersonUpdate:
+    properties:
+      age:
+        type: integer
+      gender:
+        $ref: '#/definitions/models.GenderType'
+      name:
+        type: string
+      nationality:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
 host: localhost:8081
 info:
   contact: {}
@@ -41,7 +64,7 @@ paths:
   /api/v1/persons:
     get:
       description: Возвращает список записей о людях с поддержкой пагинации и фильтров
-        по имени и фамилии.
+        по всем полям. Если записей нет, возвращается сообщение.
       parameters:
       - default: 10
         description: Лимит записей
@@ -61,17 +84,33 @@ paths:
         in: query
         name: surname
         type: string
+      - description: Фильтр по отчеству
+        in: query
+        name: patronymic
+        type: string
+      - description: Фильтр по возрасту
+        in: query
+        name: age
+        type: integer
+      - description: Фильтр по полу (male, female)
+        in: query
+        name: gender
+        type: string
+      - description: Фильтр по национальности
+        in: query
+        name: nationality
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: Список записей
+          description: Список записей или сообщение о пустом списке
           schema:
             items:
               $ref: '#/definitions/models.Person'
             type: array
         "400":
-          description: Некорректные параметры
+          description: Некорректные параметры, например, отрицательный лимит
           schema:
             additionalProperties:
               type: string
@@ -89,7 +128,8 @@ paths:
       consumes:
       - application/json
       description: Создаёт запись о человеке с указанным именем, фамилией (опционально)
-        и отчеством (опционально). Данные обогащаются через внешние API.
+        и отчеством (опционально). Данные обогащаются через внешние API (Agify.io,
+        Genderize.io, Nationalize.io).
       parameters:
       - description: Данные человека
         in: body
@@ -105,13 +145,13 @@ paths:
           schema:
             $ref: '#/definitions/models.Person'
         "400":
-          description: Некорректный JSON или ошибка валидации
+          description: Некорректный JSON или ошибка валидации, например, пустое имя
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Внутренняя ошибка сервера
+          description: Внутренняя ошибка сервера, например, сбой API обогащения
           schema:
             additionalProperties:
               type: string
@@ -138,7 +178,7 @@ paths:
               type: string
             type: object
         "400":
-          description: Некорректный ID
+          description: Некорректный ID, например, не число
           schema:
             additionalProperties:
               type: string
@@ -174,7 +214,7 @@ paths:
           schema:
             $ref: '#/definitions/models.Person'
         "400":
-          description: Некорректный ID
+          description: Некорректный ID, например, не число
           schema:
             additionalProperties:
               type: string
@@ -194,10 +234,59 @@ paths:
       summary: Получить запись о человеке по ID
       tags:
       - persons
+    patch:
+      consumes:
+      - application/json
+      description: Частично обновляет существующую запись о человеке по указанному
+        ID. Возвращает сообщение об успехе, совпадении данных или ошибке.
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Обновлённые данные человека
+        in: body
+        name: person
+        required: true
+        schema:
+          $ref: '#/definitions/models.PersonUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Запись обновлена или данные не изменены
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Некорректный ID, JSON, пустой запрос, несуществующее поле или
+            ошибка валидации
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Запись не найдена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Частично обновить запись о человеке
+      tags:
+      - persons
     put:
       consumes:
       - application/json
-      description: Обновляет существующую запись о человеке по указанному ID.
+      description: Полностью обновляет существующую запись о человеке по указанному
+        ID.
       parameters:
       - description: ID человека
         in: path
@@ -220,7 +309,13 @@ paths:
               type: string
             type: object
         "400":
-          description: Некорректный ID или JSON
+          description: Некорректный ID, JSON или ошибка валидации
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Запись не найдена
           schema:
             additionalProperties:
               type: string

@@ -35,6 +35,7 @@ func NewServer(cfg *config.Config, service *service.PersonService, logger *zap.L
 		r.Get("/persons", handler.ListPersons)
 		r.Get("/persons/{id}", handler.GetPerson)
 		r.Put("/persons/{id}", handler.UpdatePerson)
+		r.Patch("/persons/{id}", handler.PatchPerson)
 		r.Delete("/persons/{id}", handler.DeletePerson)
 	})
 

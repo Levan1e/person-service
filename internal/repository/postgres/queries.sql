@@ -1,6 +1,6 @@
 -- name: CreatePerson
-INSERT INTO persons (name, surname, patronymic, age, gender, nationality, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO persons (name, surname, patronymic, age, gender, nationality, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id;
 
 -- name: GetPersonByID

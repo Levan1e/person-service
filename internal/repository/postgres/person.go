@@ -66,7 +66,6 @@ func (r *PersonRepository) Create(ctx context.Context, person *models.Person) er
 		person.Gender,
 		person.Nationality,
 		person.CreatedAt,
-		person.UpdatedAt,
 	).Scan(&person.ID)
 	if err != nil {
 		return fmt.Errorf("не удалось создать запись: %w", err)
@@ -90,7 +89,7 @@ func (r *PersonRepository) GetByID(ctx context.Context, id int) (*models.Person,
 		&person.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("не удалось получить запись: %w", err)
+		return nil, fmt.Errorf("запись с id %d не найдена", id)
 	}
 	return &person, nil
 }
@@ -98,7 +97,7 @@ func (r *PersonRepository) GetByID(ctx context.Context, id int) (*models.Person,
 // Update обновляет запись в таблице persons.
 func (r *PersonRepository) Update(ctx context.Context, person *models.Person) error {
 	query := r.queries["UpdatePerson"]
-	_, err := r.db.Exec(ctx, query,
+	result, err := r.db.Exec(ctx, query,
 		person.Name,
 		person.Surname,
 		person.Patronymic,
@@ -110,6 +109,9 @@ func (r *PersonRepository) Update(ctx context.Context, person *models.Person) er
 	)
 	if err != nil {
 		return fmt.Errorf("не удалось обновить запись: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("запись с id %d не найдена", person.ID)
 	}
 	return nil
 }
@@ -138,6 +140,18 @@ func (r *PersonRepository) List(ctx context.Context, limit, offset int, filters 
 	}
 	if surname, ok := filters["surname"]; ok {
 		whereClauses = append(whereClauses, fmt.Sprintf("surname ILIKE '%s'", "%"+surname+"%"))
+	}
+	if patronymic, ok := filters["patronymic"]; ok {
+		whereClauses = append(whereClauses, fmt.Sprintf("patronymic ILIKE '%s'", "%"+patronymic+"%"))
+	}
+	if age, ok := filters["age"]; ok {
+		whereClauses = append(whereClauses, fmt.Sprintf("age = %s", age))
+	}
+	if gender, ok := filters["gender"]; ok {
+		whereClauses = append(whereClauses, fmt.Sprintf("gender = '%s'", gender))
+	}
+	if nationality, ok := filters["nationality"]; ok {
+		whereClauses = append(whereClauses, fmt.Sprintf("nationality ILIKE '%s'", "%"+nationality+"%"))
 	}
 
 	var where string
@@ -172,4 +186,70 @@ func (r *PersonRepository) List(ctx context.Context, limit, offset int, filters 
 	}
 
 	return persons, nil
+}
+
+func (r *PersonRepository) Patch(ctx context.Context, id int, update *models.PersonUpdate) error {
+	var fields []string
+	var args []interface{}
+	argIndex := 1
+
+	// Формируем список полей для обновления
+	if update.Name != nil {
+		fields = append(fields, fmt.Sprintf("name = $%d", argIndex))
+		args = append(args, *update.Name)
+		argIndex++
+	}
+	if update.Surname != nil {
+		fields = append(fields, fmt.Sprintf("surname = $%d", argIndex))
+		args = append(args, *update.Surname)
+		argIndex++
+	}
+	if update.Patronymic != nil {
+		fields = append(fields, fmt.Sprintf("patronymic = $%d", argIndex))
+		args = append(args, *update.Patronymic)
+		argIndex++
+	}
+	if update.Age != nil {
+		fields = append(fields, fmt.Sprintf("age = $%d", argIndex))
+		args = append(args, *update.Age)
+		argIndex++
+	}
+	if update.Gender != nil {
+		fields = append(fields, fmt.Sprintf("gender = $%d", argIndex))
+		args = append(args, *update.Gender)
+		argIndex++
+	}
+	if update.Nationality != nil {
+		fields = append(fields, fmt.Sprintf("nationality = $%d", argIndex))
+		args = append(args, *update.Nationality)
+		argIndex++
+	}
+
+	// Добавляем updated_at
+	fields = append(fields, fmt.Sprintf("updated_at = $%d", argIndex))
+	args = append(args, time.Now())
+	argIndex++
+
+	// Добавляем ID
+	args = append(args, id)
+
+	// Формируем SQL-запрос
+	query := fmt.Sprintf(`
+        UPDATE persons
+        SET %s
+        WHERE id = $%d
+        RETURNING id
+    `, strings.Join(fields, ", "), argIndex)
+
+	// Выполняем запрос
+	var updatedID int
+	err := r.db.QueryRow(ctx, query, args...).Scan(&updatedID)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result set") {
+			return fmt.Errorf("запись с id %d не найдена", id)
+		}
+		return fmt.Errorf("не удалось обновить запись: %w", err)
+	}
+
+	return nil
 }

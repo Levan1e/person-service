@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/persons": {
             "get": {
-                "description": "Возвращает список записей о людях с поддержкой пагинации и фильтров по имени и фамилии.",
+                "description": "Возвращает список записей о людях с поддержкой пагинации и фильтров по всем полям. Если записей нет, возвращается сообщение.",
                 "produces": [
                     "application/json"
                 ],
@@ -51,11 +51,35 @@ const docTemplate = `{
                         "description": "Фильтр по фамилии",
                         "name": "surname",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по отчеству",
+                        "name": "patronymic",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Фильтр по возрасту",
+                        "name": "age",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по полу (male, female)",
+                        "name": "gender",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по национальности",
+                        "name": "nationality",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Список записей",
+                        "description": "Список записей или сообщение о пустом списке",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -64,7 +88,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Некорректные параметры",
+                        "description": "Некорректные параметры, например, отрицательный лимит",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -84,7 +108,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Создаёт запись о человеке с указанным именем, фамилией (опционально) и отчеством (опционально). Данные обогащаются через внешние API.",
+                "description": "Создаёт запись о человеке с указанным именем, фамилией (опционально) и отчеством (опционально). Данные обогащаются через внешние API (Agify.io, Genderize.io, Nationalize.io).",
                 "consumes": [
                     "application/json"
                 ],
@@ -114,7 +138,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Некорректный JSON или ошибка валидации",
+                        "description": "Некорректный JSON или ошибка валидации, например, пустое имя",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -123,7 +147,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Внутренняя ошибка сервера, например, сбой API обогащения",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -161,7 +185,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Некорректный ID",
+                        "description": "Некорректный ID, например, не число",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -190,7 +214,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Обновляет существующую запись о человеке по указанному ID.",
+                "description": "Полностью обновляет существующую запись о человеке по указанному ID.",
                 "consumes": [
                     "application/json"
                 ],
@@ -230,7 +254,16 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Некорректный ID или JSON",
+                        "description": "Некорректный ID, JSON или ошибка валидации",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Запись не найдена",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -278,7 +311,76 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Некорректный ID",
+                        "description": "Некорректный ID, например, не число",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Запись не найдена",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Частично обновляет существующую запись о человеке по указанному ID. Возвращает сообщение об успехе, совпадении данных или ошибке.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "persons"
+                ],
+                "summary": "Частично обновить запись о человеке",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID человека",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Обновлённые данные человека",
+                        "name": "person",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PersonUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Запись обновлена или данные не изменены",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный ID, JSON, пустой запрос, несуществующее поле или ошибка валидации",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -309,6 +411,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.GenderType": {
+            "type": "string",
+            "enum": [
+                "male",
+                "female"
+            ],
+            "x-enum-varnames": [
+                "GenderMale",
+                "GenderFemale"
+            ]
+        },
         "models.Person": {
             "type": "object",
             "properties": {
@@ -319,7 +432,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "gender": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.GenderType"
                 },
                 "id": {
                     "type": "integer"
@@ -345,6 +458,29 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
+                    "type": "string"
+                },
+                "patronymic": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PersonUpdate": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "integer"
+                },
+                "gender": {
+                    "$ref": "#/definitions/models.GenderType"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nationality": {
                     "type": "string"
                 },
                 "patronymic": {

@@ -2,9 +2,11 @@ package logger
 
 import (
 	"fmt"
+	"person-service/internal/config"
 	"runtime"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Logger представляет обёртку над zap.Logger для удобного логирования.
@@ -13,13 +15,25 @@ type Logger struct {
 }
 
 // NewLogger создаёт новый экземпляр логгера в режиме разработки.
-func NewLogger() (*Logger, error) {
-	// Используем режим разработки для подробных логов и стек-трейсов
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.CallerKey = "caller"
-	cfg.EncoderConfig.StacktraceKey = "stacktrace"
+func NewLogger(cfg *config.Config) (*Logger, error) {
+	var zapCfg zap.Config
+	switch cfg.LogLevel {
+	case "debug":
+		zapCfg = zap.NewDevelopmentConfig()
+	case "info", "":
+		zapCfg = zap.NewProductionConfig()
+		zapCfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	case "error":
+		zapCfg = zap.NewProductionConfig()
+		zapCfg.Level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
+	default:
+		return nil, fmt.Errorf("неподдерживаемый уровень логирования: %s", cfg.LogLevel)
+	}
 
-	logger, err := cfg.Build(
+	zapCfg.EncoderConfig.CallerKey = "caller"
+	zapCfg.EncoderConfig.StacktraceKey = "stacktrace"
+
+	logger, err := zapCfg.Build(
 		zap.AddCaller(),
 		zap.AddCallerSkip(1),
 		zap.AddStacktrace(zap.ErrorLevel), // Стек-трейсы для Error и выше

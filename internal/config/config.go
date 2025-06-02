@@ -32,6 +32,7 @@ type Config struct {
 	Server   Server   `mapstructure:"server"`
 	Database Database `mapstructure:"database"`
 	APIs     APIs     `mapstructure:"apis"`
+	LogLevel string   `mapstructure:"log_level"`
 }
 
 // LoadConfig загружает конфигурацию из .env файла или переменных окружения.
@@ -61,6 +62,9 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.APIs.Agify == "" || cfg.APIs.Genderize == "" || cfg.APIs.Nationalize == "" {
 		return nil, fmt.Errorf("URL внешних API обязательны")
+	}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "info"
 	}
 
 	return &cfg, nil

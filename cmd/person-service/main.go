@@ -25,19 +25,19 @@ import (
 // @host localhost:8081
 // @BasePath /api/v1
 func main() {
+	// Загрузка конфигурации
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
+	}
+
 	// Инициализация логгера
-	logr, err := logger.NewLogger()
+	logr, err := logger.NewLogger(cfg)
 	if err != nil {
 		log.Fatalf("Ошибка инициализации логгера: %v", err)
 	}
 	defer logr.Sync()
 	logr.Info("Сервис запущен")
-
-	// Загрузка конфигурации
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		logr.Fatal("Ошибка загрузки конфигурации", logger.ErrorKV("error", err))
-	}
 
 	// Подключение к Postgres
 	ctx := context.Background()
