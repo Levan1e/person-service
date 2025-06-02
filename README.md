@@ -66,6 +66,16 @@ Person Service is a service for creating, retrieving, updating, deleting, and li
 
   ### Response:
       { "message": "Запись обновлена" }
+    
++ ### PATCH /api/v1/persons/{id}
+  Partially updates the record, updating only the specified fields.
+  
+  ### Request:
+
+  `{ "surname": "Петров"}`
+
+  ### Response:
+      { "message": "Запись обновлена" }
 
 + ### DELETE /api/v1/persons/{id}
   Delete a person record.
